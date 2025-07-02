@@ -7,6 +7,8 @@ eventbridge = boto3.client('events')
 sqs = boto3.client('sqs')
 sns = boto3.client('sns')
 kms = boto3.client('kms')
+lambda_client = boto3.client('lambda')
+logs = boto3.client('logs')
 
 def listar_databases():
     paginator = glue.get_paginator('get_databases')
@@ -149,6 +151,24 @@ def deletar_kms_custom_keys():
         else:
             print(f"Ignorando chave gerenciada pela AWS: {key_id}")
 
+def deletar_lambda():
+    paginator = lambda_client.get_paginator('list_functions')
+    for page in paginator.paginate():
+        for function in page['Functions']:
+            function_name = function['FunctionName']
+            print(f"Deletando função Lambda: {function_name}")
+            lambda_client.delete_function(FunctionName=function_name)
+            print(f"  - Função {function_name} deletada com sucesso.")
+
+def deletar_log_groups():
+    paginator = logs.get_paginator('describe_log_groups')
+    for page in paginator.paginate():
+        for log_group in page['logGroups']:
+            log_group_name = log_group['logGroupName']
+            print(f"Deletando log group: {log_group_name}")
+            logs.delete_log_group(logGroupName=log_group_name)
+            print(f"  - Log group {log_group_name} deletado com sucesso.")
+
 if __name__ == "__main__":
     deletar_glue_catalog()
     deletar_event_buses_personalizados()
@@ -156,6 +176,9 @@ if __name__ == "__main__":
     deletar_sqs()
     deletar_sns()
     deletar_kms_custom_keys()
+    deletar_lambda()
+    deletar_log_groups()
+
 
 
 
