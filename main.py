@@ -9,6 +9,7 @@ sns = boto3.client('sns')
 kms = boto3.client('kms')
 lambda_client = boto3.client('lambda')
 logs = boto3.client('logs')
+iam = boto3.client('iam')
 
 def listar_databases():
     paginator = glue.get_paginator('get_databases')
@@ -169,6 +170,36 @@ def deletar_log_groups():
             logs.delete_log_group(logGroupName=log_group_name)
             print(f"  - Log group {log_group_name} deletado com sucesso.")
 
+def deletar_policies_custom():
+    prefixos = ["AWSLambdaBasicExecutionRole", "Cloudtrail-CW"]
+    
+    # Paginação para buscar todas as customer-managed policies
+    paginator = iam.get_paginator('list_policies')
+    pages = paginator.paginate(Scope='Local')  # Scope='Local' -> apenas custom policies (não AWS managed)
+
+    for page in pages:
+        for policy in page['Policies']:
+            name = policy['PolicyName']
+            arn = policy['Arn']
+            
+            if any(name.startswith(prefixo) for prefixo in prefixos):
+                print(f"Encontrada policy: {name} ({arn})")
+
+                # Verifica se há versões além da default
+                versions = iam.list_policy_versions(PolicyArn=arn)['Versions']
+                for version in versions:
+                    if not version['IsDefaultVersion']:
+                        iam.delete_policy_version(
+                            PolicyArn=arn,
+                            VersionId=version['VersionId']
+                        )
+                        print(f"  - Versão extra {version['VersionId']} removida")
+
+
+                iam.delete_policy(PolicyArn=arn)
+                print(f"  - Policy {name} deletada com sucesso")
+
+
 if __name__ == "__main__":
     deletar_glue_catalog()
     deletar_event_buses_personalizados()
@@ -178,6 +209,7 @@ if __name__ == "__main__":
     deletar_kms_custom_keys()
     deletar_lambda()
     deletar_log_groups()
+    deletar_policies_custom()
 
 
 
